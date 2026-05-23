@@ -1,0 +1,11 @@
+script/.Rhistory
+*.rds
+*.gz
+*.h5
+*.xlsx
+*.png
+*.RData
+/.Rproj.user
+*.csv
+*.Rproj
+*.md
