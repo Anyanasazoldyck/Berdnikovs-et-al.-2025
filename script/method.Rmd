@@ -1,11 +1,9 @@
----
-title: "methodology"
-author: "Anya Alsamaraie"
-date: "2026-05-28"
-output: html_document
----
+
+
 ## samples
+
 The authors used nasal airway epithelial cells (NAECs) from 2–3-year-old children in the INSPIRE birth cohort, stratified into four groups: control, RSV-only (infant infection, no wheeze), wheeze-only, and wheeze plus RSV. NAECs were expanded and differentiated at the air-liquid interface (ALI) for 3 weeks, then profiled by scRNA-seq. The samples can be found in this link NCBI GEO repository (accession number GSE286262). The samples are shown in the table below.
+
 ```{r (Table1: Summary of the Samples)}
 setwd("D:/May_journal")
 
@@ -13,11 +11,19 @@ readxl::read_xlsx("data/ss.xlsx")
 ```
 
 ## Integration
-What I found interesting about this analysis is that they seemed to try two integration methods in two different contexts: Seurat integration (CCT) to integrate samples, followed by Harmony integration to integrate "groups". I decided to run both methods and compare the PCA plots, and the UMAP plote 
 
-Pre-integration PCA plot shows seperation of samples as shown below. 
+What I found interesting about this analysis is that they seemed to try two integration methods in two different contexts: Seurat integration (CCT) to integrate samples, followed by Harmony integration to integrate "groups". I decided to run both methods and compare the PCA plots, and the UMAP plote
+
+Pre-integration PCA plot shows seperation of samples as shown below.
 
 ```{r (Fig.1 Pre-integration PCA)}
+pca_preint <- DimPlot(sc_merge_unint,
+                      reduction = "unintegrated_pca",
+                      group.by = "orig.ident")
+
+pca_preint_group <- DimPlot(sc_merge_unint,
+                            reduction = "unintegrated_pca",
+                            group.by = "group")
 print(pca_preint + pca_preint_group)& theme( axis.text = element_blank(),
                                              axis.ticks = element_blank(),
                                              axis.title = element_text(size = 12),
@@ -25,7 +31,7 @@ print(pca_preint + pca_preint_group)& theme( axis.text = element_blank(),
   ggtitle("Pre-integration PCA")
 ```
 
-While both seurat based integration and Harmony result in a similar PCA plot (Fig.2), the umap appears superior in correcting the batch effect (Fig.3). So I decided to proceed with harmony. 
+While both seurat based integration and Harmony result in a similar PCA plot (Fig.2), the umap appears superior in correcting the batch effect (Fig.3). So I decided to proceed with harmony.
 
 ```{r (Fig.2 PCA in Harmony)}
 
@@ -53,8 +59,6 @@ print(p1/p2)
 
 
 ```
-
-
 
 ```{r}
 p1 <- DimPlot(sc.data, reduction = "umap", group.by = "orig.ident")& theme(
