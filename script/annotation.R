@@ -106,25 +106,29 @@ sc.data<- RunUMAP(sc.data,
                   dims = 1:30,
                   reduction.name = "umap")
 
-DimPlot(sc.data, reduction = "umap", label = T)
+p <- DimPlot(sc.data, group.by = "seurat_clusters",
+             reduction = "umap", label=T, label.size = 4)&umap_theme&
+  labs(x= "UMAP-1", y="UMAP-2",title = "Seurat Clusters")
 
 # I need 17 Clustert
 #==========================================
 # Explore more sub clust 
 #========================================
 
-p <- DimPlot(sc.data, group.by = "seurat_clusters",
-                     reduction = "umap", label=T, label.size = 4)&umap_theme&
-  labs(x= "UMAP-1", y="UMAP-2",title = "Seurat Clusters")
 
 
 
 sc.data<- FindSubCluster(sc.data,
-                         cluster = c(5),
+                         cluster = c(9),
                          resolution = 0.4,
                          graph.name="RNA_snn")
 sc.data<- FindSubCluster(sc.data,
-                         cluster = c(3),
+                         cluster = c(8),
+                         resolution = 0.2,
+                         graph.name="RNA_snn")
+
+sc.data<- FindSubCluster(sc.data,
+                         cluster = c(0),
                          resolution = 0.2,
                          graph.name="RNA_snn")
 main_umap <- DimPlot(sc.data, group.by = "sub.cluster",
@@ -176,7 +180,7 @@ vln.p <- VlnPlot(sc.data,
   theme(legend.position = "none", 
         axis.title.y = element_text(size = rel(1), angle = 0), 
         axis.text.y = element_text(size = rel(1))) 
-vln.p
+
 ggsave("analysis/markers_vln2.png", vln.p,dpi=300,
        width = 10, height = 10)
 
@@ -185,7 +189,7 @@ ggsave("analysis/markers_vln2.png", vln.p,dpi=300,
 #==========================
 Idents(sc.data)<-sc.data$sub.cluster
 levels(sc.data)
-ss<- readxl::read_xlsx("data/ss.xlsx", sheet = "anno")
+ss<- readxl::read_xlsx("data/ss.xlsx", sheet = "anno_final")
 new.ident <- ss$Annotation
 names(new.ident)<-ss$Cluster
 sc.data <- RenameIdents(sc.data, new.ident)
@@ -215,7 +219,11 @@ p2<-dittoSeq::dittoBarPlot(sc.data, var="cell_types",
 
 ggsave("analysis/composition.png", p2,dpi=300,
        width = 10, height = 5)
-#saveRDS(sc.data,"data/final_harmony_seurat.rds")
+
+#===========
+# save object
+#=============
+saveRDS(sc.data,"data/final_harmony_seurat.rds")
 #===========================
 # Find top marker of each cell type
 #============================
@@ -229,10 +237,29 @@ write.csv(markers,"data/markers_anno.csv")
 write.csv(top.20,"data/markers_top.20_anno.csv")
 top.5<- markers %>% dplyr::group_by(cluster)%>% slice_head(n=5)
 
+
+#=========================
+#HM==========
+#=========================
+hm_markers <- unique(c(
+  "SNTN", "PROS1", "HYDIN", "DNAAF1", "DNAH12", "FOXJ1",
+  "TOP2A", "DEUP1", "TP63", "KRT5", "KRT14", "STMN1",
+  "KRT8", "SERPINB3", "MSMB", "SCGB3A1", "SCGB1A1",
+  "MMP10", "MUC5AC", "CEACAM5", "CST1", "CFTR",
+  "NPPC",
+  "DEUP1", "FOXJ1",
+  "BPIFB1", "MUC5B",
+  
+  "MKI67", "TOP2A", "CENPF",
+  "S100A4", "KRT4", "CD36",
+  "IDO1", "NOS2", "IL19", "CSF3", "CXCL10",
+  "FXYD1", "CCL20", "ATP12A", "COX7A1", "AP2B1", "SYT5"
+))
+
 # HM 
 avg_exp <- AverageExpression(
   sc.data,
-  features = markers,
+  features = top.5$gene,
   group.by = "cell_types",
   assays = "RNA"
 )$RNA
@@ -262,9 +289,58 @@ p<-pheatmap::pheatmap(
 )
 png("analysis/TopMArkersHM.png",
   res = 300,
-  width = 10 * 300,
-  height = 12 * 300
+  width = 8 * 300,
+  height = 10* 300
 )
 
 print(p)
 dev.off()
+#=================================
+# Distrubution 
+#==============================
+group_cols <- c(
+  "Control"   = "#4E79A7",  # blue
+  "Wheeze"    = "#F28E2B",  # orange
+  "RSV"       = "#59A14F",  # green
+  "WheezeRSV" = "#E15759"   # red
+)
+
+# Create output folder
+dir.create("plots/group_highlight", showWarnings = FALSE)
+
+# Loop over groups
+for (g in unique(sc.data$group)) {
+  
+  cells_use <- colnames(sc.data)[sc.data$group == g]
+  
+  p <- DimPlot(
+    sc.data,
+    reduction = "umap", # or "tsne"
+    cells.highlight = cells_use,
+    cols = "grey85",
+    cols.highlight = group_cols[g],
+    pt.size = 0.25,
+    sizes.highlight = 0.35
+  ) +
+    ggtitle(g) +
+    theme_classic(base_family = "ArialMT") +
+    theme(
+      plot.title = element_text(
+        size = 16,
+        face = "bold",
+        hjust = 0.5
+      ),
+      axis.title = element_blank(),
+      axis.text = element_blank(),
+      axis.ticks = element_blank(),
+      legend.position = "none"
+    )
+  
+  ggsave(
+    filename = paste0("plots/group_highlight/", g, "_highlight.png"),
+    plot = p,
+    width = 5,
+    height = 5,
+    dpi = 300
+  )
+}
