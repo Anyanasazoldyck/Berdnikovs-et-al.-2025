@@ -16,7 +16,7 @@ general_theme <- theme(
 
 umap_theme <- theme(
   plot.title = element_text(hjust = 0.5),
-  legend.position = "none",
+  legend.position = "right",
   axis.text = element_blank(),
   axis.ticks = element_blank(),
   axis.title = element_text(size = 18),
@@ -123,7 +123,10 @@ sc.data<- FindSubCluster(sc.data,
                          cluster = c(5),
                          resolution = 0.4,
                          graph.name="RNA_snn")
-
+sc.data<- FindSubCluster(sc.data,
+                         cluster = c(3),
+                         resolution = 0.2,
+                         graph.name="RNA_snn")
 main_umap <- DimPlot(sc.data, group.by = "sub.cluster",
                      reduction = "umap", label=T, label.size = 4)&umap_theme&
   labs(x= "UMAP-1", y="UMAP-2",title = "Seurat Clusters")
@@ -157,7 +160,7 @@ cell.state.markers <- list(
   Basal1 = c("TP63", "NPPC"),
   Basal2 = c("KRT5", "KRT14"),
   Deuterosomal<- c("DEUP1", "FOXJ1"),
-  club<-c("SCGB1A1" ,"SCGB3A1"),
+  club<-c("SCGB1A1" ,"SCGB3A1","MSMB","BPIFB1","MUC5B" ),
   Ionocytes <- c("FOXI1", "CFTR"),
   
   Cycling <- c("MKI67", "TOP2A", "CENPF"),
@@ -182,29 +185,9 @@ ggsave("analysis/markers_vln2.png", vln.p,dpi=300,
 #==========================
 Idents(sc.data)<-sc.data$sub.cluster
 levels(sc.data)
-new.ident <- c(
- "0_0"= "Secretory_Precursor",  
- 
- "0_1"="progenitors",# 0
-  "2"="Ciliated",          # 2
-  "3"="Ciliated",          # 3
-  "4"="Club Progenrator",        # 4
-  "5"="Club",              # 5
-  "6_1"="Basal.2",             # 6_1
-  "7"="Goblet",            # 7
-  "8"="Deuterosomal",      # 8
-  
- "9"="Ciliated",   # 9
-  
- "10"="Goblet",            # 10
-  "11"="Ciliated",          # 11
-  "12"="Ciliated",          # 12
-  "6_0"="Basal.1",             # 6_0
-  "6_2"="Basal.2",             # 6_2
-  "6_4"="Activated_Basal",   # 6_4
-  "6_3"="Cycling_Basal"      # 6_3
-)
-
+ss<- readxl::read_xlsx("data/ss.xlsx", sheet = "anno")
+new.ident <- ss$Annotation
+names(new.ident)<-ss$Cluster
 sc.data <- RenameIdents(sc.data, new.ident)
 sc.data <- AddMetaData(
   sc.data,
@@ -213,33 +196,89 @@ sc.data <- AddMetaData(
 )
 
 
+p<- DimPlot(sc.data,
+            reduction = "umap",
+            group.by = "cell_types",
+            label = F)&umap_theme
+
+ggsave("analysis/umap_final_anno.png", p,dpi=300,
+       width = 8, height = 5)
 
 
 #===================
 # Plot final umap ----
 #==================
 
-p2<-dittoSeq::dittoBarPlot(sc.data, var="group",
-                       group.by = "cell_types")
+p2<-dittoSeq::dittoBarPlot(sc.data, var="cell_types",
+                       group.by = "group")
 
-p<- DimPlot(sc.data,
-            reduction = "umap",
-            group.by = "cell_types",
-            label = F)
-p1<- DimPlot(sc.data,
-             reduction = "umap",
-             group.by = "sub.cluster",
-             label = T)
 
-ggsave("analysis/umap_final.png", p,dpi=300,
-       width = 6, height = 5)
-
-ggsave("analysis/umap_deurat_clust.png", p1,dpi=300,
-       width = 6, height = 5)
 ggsave("analysis/composition.png", p2,dpi=300,
        width = 10, height = 5)
-saveRDS(sc.data,"data/final_harmony_seurat.rds")
+#saveRDS(sc.data,"data/final_harmony_seurat.rds")
 #===========================
 # Find top marker of each cell type
 #============================
+markers <- unique(c(
+  "TP63", "NPPC",
+  "KRT5", "KRT14",
+  "DEUP1", "FOXJ1",
+  "SCGB1A1", "SCGB3A1", "MSMB", "BPIFB1", "MUC5B",
+  "FOXI1", "CFTR",
+  "MKI67", "TOP2A", "CENPF",
+  "CEACAM5", "S100A4", "MUC5AC", "KRT4", "CD36",
+  "IDO1", "NOS2", "IL19", "CSF3", "CXCL10",
+  "PROS1", "FXYD1",
+  "CCL20", "ATP12A", "COX7A1", "AP2B1", "SYT5",
+  "HES4", "NEAT1", "JUND",
+  "AZGP1", "LYZ", "PIP", "SOX9",
+  "SERPINB3", "SERPINB4", "CLCA2", "LY6D", "CALML3", "LGALS7B",
+  "AQP5", "CYP2F1", "FAM3B",
+  "DAPL1", "UGT2A1"
+))
 
+sc.data<-JoinLayers(sc.data)
+markers <- FindAllMarkers(sc.data, only.pos = T, 
+                          min.pct = 0.25, min.diff.pct = 0.25)
+top.20<- markers %>% dplyr::group_by(cluster)%>% slice_head(n=20)
+write.csv(markers,"data/markers_anno.csv")
+write.csv(top.20,"data/markers_top.20_anno.csv")
+top.5<- markers %>% dplyr::group_by(cluster)%>% slice_head(n=5)
+
+# HM 
+avg_exp <- AverageExpression(
+  sc.data,
+  features = markers,
+  group.by = "cell_types",
+  assays = "RNA"
+)$RNA
+
+# I will z score them to look better
+avg_exp_z<- t(scale(t(avg_exp)))
+# I will add colors to cell types
+annotation_col <- data.frame(
+  Cell_type = colnames(avg_exp_z)
+)
+
+rownames(annotation_col) <- colnames(avg_exp_z)
+
+
+p<-pheatmap::pheatmap(
+  avg_exp_z,
+  cluster_rows = T,
+  cluster_cols = T,
+  border_color = "black",
+  fontsize_row = 10,
+  show_colnames = FALSE,
+  annotation_names_col = FALSE,
+  annotation_col = annotation_col,
+ treeheight_col = 0, treeheight_row = 0
+)
+png("analysis/TopMArkersHM.png",
+  res = 300,
+  width = 10 * 300,
+  height = 12 * 300
+)
+
+print(p)
+dev.off()
