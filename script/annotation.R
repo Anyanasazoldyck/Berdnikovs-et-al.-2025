@@ -219,23 +219,7 @@ ggsave("analysis/composition.png", p2,dpi=300,
 #===========================
 # Find top marker of each cell type
 #============================
-markers <- unique(c(
-  "TP63", "NPPC",
-  "KRT5", "KRT14",
-  "DEUP1", "FOXJ1",
-  "SCGB1A1", "SCGB3A1", "MSMB", "BPIFB1", "MUC5B",
-  "FOXI1", "CFTR",
-  "MKI67", "TOP2A", "CENPF",
-  "CEACAM5", "S100A4", "MUC5AC", "KRT4", "CD36",
-  "IDO1", "NOS2", "IL19", "CSF3", "CXCL10",
-  "PROS1", "FXYD1",
-  "CCL20", "ATP12A", "COX7A1", "AP2B1", "SYT5",
-  "HES4", "NEAT1", "JUND",
-  "AZGP1", "LYZ", "PIP", "SOX9",
-  "SERPINB3", "SERPINB4", "CLCA2", "LY6D", "CALML3", "LGALS7B",
-  "AQP5", "CYP2F1", "FAM3B",
-  "DAPL1", "UGT2A1"
-))
+
 
 sc.data<-JoinLayers(sc.data)
 markers <- FindAllMarkers(sc.data, only.pos = T, 
@@ -262,7 +246,9 @@ annotation_col <- data.frame(
 
 rownames(annotation_col) <- colnames(avg_exp_z)
 
-
+#===================================
+# pheatmaop
+#========================================
 p<-pheatmap::pheatmap(
   avg_exp_z,
   cluster_rows = T,
